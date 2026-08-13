@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EuroFlag AI — European Flag Recognition</title>
+    <meta name="description" content="AI-powered European flag recognition using EfficientNetB2.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="background-glow glow-one"></div>
+    <div class="background-glow glow-two"></div>
+
+    <nav class="navbar">
+        <a class="brand" href="/">
+            <span class="brand-mark">EF</span>
+            <span>EuroFlag <b>AI</b></span>
+        </a>
+        <div class="nav-pill">24 European Flags</div>
+    </nav>
+
+    <main class="container">
+        <section class="hero">
+            <div class="eyebrow"><span></span> AI FLAG RECOGNITION</div>
+            <h1>Identify a European flag<br><em>in seconds.</em></h1>
+            <p class="hero-text">
+                Upload a flag image and let our EfficientNetB2 deep-learning model
+                predict the country with confidence scores and top alternatives.
+            </p>
+        </section>
+
+        {% if not model_ready %}
+        <div class="alert danger">
+            <strong>Model not loaded.</strong>
+            Put <code>FINAL_European_Flags_EfficientNetB2.keras</code> inside
+            the <code>models</code> folder, then restart Flask.
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="alert danger">{{ error }}</div>
+        {% endif %}
+
+        <section class="workspace">
+            <div class="upload-card">
+                <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                    <label class="drop-zone" id="dropZone" for="fileInput">
+                        <input id="fileInput" name="file" type="file"
+                               accept=".jpg,.jpeg,.png,.webp" hidden>
+
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 16V4m0 0 4 4m-4-4L8 8M5 20h14a2 2 0 0 0 2-2v-3M3 15v3a2 2 0 0 0 2 2"/>
+                            </svg>
+                        </div>
+
+                        <h2>Drop your flag here</h2>
+                        <p>or <strong>browse from your computer</strong></p>
+                        <span class="file-types">JPG · JPEG · PNG · WEBP · Max 10 MB</span>
+                    </label>
+
+                    <div class="preview-wrap" id="previewWrap">
+                        <img id="previewImage" alt="Selected image preview">
+                        <div class="preview-info">
+                            <span id="fileName"></span>
+                            <button type="button" id="removeBtn">Remove</button>
+                        </div>
+                    </div>
+
+                    <button class="predict-btn" id="predictBtn" type="submit" disabled>
+                        <span>Predict European Flag</span>
+                        <span class="arrow">→</span>
+                    </button>
+                </form>
+            </div>
+
+            <div class="result-card">
+                {% if prediction %}
+                    <div class="result-header">
+                        <div>
+                            <span class="section-label">PREDICTION</span>
+                            <h2>{{ prediction.class_name }}</h2>
+                        </div>
+                        <div class="confidence">
+                            <strong>{{ "%.1f"|format(prediction.confidence) }}%</strong>
+                            <span>confidence</span>
+                        </div>
+                    </div>
+
+                    {% if image_url %}
+                    <div class="result-image">
+                        <img src="{{ image_url }}" alt="Uploaded flag">
+                    </div>
+                    {% endif %}
+
+                    <div class="confidence-bar">
+                        <div style="width: {{ [prediction.confidence, 100]|min }}%"></div>
+                    </div>
+
+                    <div class="alternatives">
+                        <div class="section-label">TOP 5 PREDICTIONS</div>
+                        {% for item in top_predictions %}
+                        <div class="prediction-row">
+                            <span class="rank">{{ loop.index }}</span>
+                            <span class="country">{{ item.class_name }}</span>
+                            <div class="mini-bar">
+                                <div style="width: {{ [item.confidence, 100]|min }}%"></div>
+                            </div>
+                            <span class="percent">{{ "%.1f"|format(item.confidence) }}%</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-result">
+                        <div class="compass">✦</div>
+                        <span class="section-label">RESULTS APPEAR HERE</span>
+                        <h2>Ready when you are.</h2>
+                        <p>
+                            Upload a clear image of a European flag to see the
+                            predicted country and top-5 confidence scores.
+                        </p>
+                        <div class="feature-list">
+                            <span>✓ 24 flag classes</span>
+                            <span>✓ EfficientNetB2</span>
+                            <span>✓ Top-5 confidence</span>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="stats">
+            <div><strong>88.0%</strong><span>Test Accuracy</span></div>
+            <div><strong>89.1%</strong><span>Macro Precision</span></div>
+            <div><strong>87.2%</strong><span>Weighted F1</span></div>
+            <div><strong>24</strong><span>Flag Classes</span></div>
+        </section>
+
+        <footer>
+            <span>EuroFlag AI</span>
+            <span>Built with Flask · TensorFlow · EfficientNetB2</span>
+        </footer>
+    </main>
+
+    <script>
+        const input = document.getElementById("fileInput");
+        const dropZone = document.getElementById("dropZone");
+        const previewWrap = document.getElementById("previewWrap");
+        const previewImage = document.getElementById("previewImage");
+        const fileName = document.getElementById("fileName");
+        const predictBtn = document.getElementById("predictBtn");
+        const removeBtn = document.getElementById("removeBtn");
+        const form = document.getElementById("uploadForm");
+
+        function showPreview(file) {
+            if (!file) return;
+            const allowed = ["image/jpeg", "image/png", "image/webp"];
+            if (!allowed.includes(file.type)) {
+                alert("Please select a JPG, PNG, or WEBP image.");
+                input.value = "";
+                return;
+            }
+
+            previewImage.src = URL.createObjectURL(file);
+            fileName.textContent = file.name;
+            previewWrap.classList.add("visible");
+            dropZone.classList.add("has-file");
+            predictBtn.disabled = false;
+        }
+
+        input.addEventListener("change", () => showPreview(input.files[0]));
+
+        ["dragenter", "dragover"].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.add("dragging");
+            });
+        });
+
+        ["dragleave", "drop"].forEach(eventName => {
+            dropZone.addEventListener(eventName, e => {
+                e.preventDefault();
+                dropZone.classList.remove("dragging");
+            });
+        });
+
+        dropZone.addEventListener("drop", e => {
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                showPreview(file);
+            }
+        });
+
+        removeBtn.addEventListener("click", () => {
+            input.value = "";
+            previewWrap.classList.remove("visible");
+            dropZone.classList.remove("has-file");
+            predictBtn.disabled = true;
+        });
+
+        form.addEventListener("submit", () => {
+            predictBtn.disabled = true;
+            predictBtn.innerHTML = "<span>Analyzing flag...</span><span class='spinner'></span>";
+        });
+    </script>
+</body>
+</html>
