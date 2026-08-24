@@ -24,6 +24,9 @@ Thumbs.db
 instance/
 .webassets-cache/
 
+# Streamlit
+.streamlit/secrets.toml
+
 # Uploaded images
 static/uploads/*
 !static/uploads/.gitkeep
@@ -32,9 +35,10 @@ static/uploads/*
 Europian_Flags/
 Europian_Flags.zip
 
-# Environment
+# Environment / secrets
 .env
 .env.*
+!.env.example
 
 # Logs
 *.log
